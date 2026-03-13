@@ -6,18 +6,13 @@ exports.handler = async function(event) {
     'Access-Control-Allow-Headers': 'Content-Type',
   };
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+  if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: 'Method Not Allowed' };
 
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: 'Method Not Allowed' };
-  }
+  console.log('API KEY 앞 10자:', (process.env.ANTHROPIC_API_KEY || 'MISSING').slice(0, 10));
+  console.log('body:', event.body ? event.body.slice(0, 100) : 'EMPTY');
 
   try {
-    // body가 문자열이면 그대로, 객체면 JSON.stringify
-    const bodyStr = typeof event.body === 'string' ? event.body : JSON.stringify(event.body);
-
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -25,18 +20,19 @@ exports.handler = async function(event) {
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
       },
-      body: bodyStr,
+      body: event.body,
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    console.log('Anthropic 응답:', text.slice(0, 200));
 
     return {
       statusCode: response.status,
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: text,
     };
-
   } catch (e) {
+    console.log('에러:', e.message);
     return {
       statusCode: 500,
       headers: { ...headers, 'Content-Type': 'application/json' },
